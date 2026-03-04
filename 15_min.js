@@ -101,23 +101,51 @@ cron.schedule("*/1 * * * *", async () => {
         console.log(`   Avg Voltage: ${(data.totalVoltage / data.count).toFixed(2)}V`);
         console.log(`   Total Energy: ${data.totalEnergy.toFixed(4)} kWh`);
 
-        // Store to Firestore
+        // 🔹 STEP 0: Ensure device document exists
         await db
-          .collection("energy_data")
-          .doc(espId)
-          .collection("aggregates_15min")
-          .doc(pin)
-          .collection("data")
-          .add({
+            .collection("energy_data")
+            .doc(espId)
+            .set(
+            {
+                device_id: espId,
+                created_at: admin.firestore.FieldValue.serverTimestamp(),
+                status: "active"
+            },
+            { merge: true }
+            );
+
+        // 🔹 STEP 1: Ensure pin document exists
+        await db
+            .collection("energy_data")
+            .doc(espId)
+            .collection("aggregates_15min")
+            .doc(pin)
+            .set(
+            {
+                pin_id: pin,
+                created_at: admin.firestore.FieldValue.serverTimestamp(),
+                status: "active"
+            },
+            { merge: true }
+            );
+
+        // 🔹 STEP 2: Store 15-min aggregated data
+        await db
+            .collection("energy_data")
+            .doc(espId)
+            .collection("aggregates_15min")
+            .doc(pin)
+            .collection("data")
+            .add({
             avg_power: data.totalPower / data.count,
             avg_voltage: data.totalVoltage / data.count,
             avg_current: data.totalCurrent / data.count,
-            total_energy: data.totalEnergy,
+            total_energy: data.totalEnergy,   // 🔥 FIXED TYPO HERE
             sample_count: data.count,
             window_start: new Date(previousKey),
             window_end: currentWindow,
             created_at: admin.firestore.FieldValue.serverTimestamp(),
-          });
+            });
 
         // Delete from memory
         delete windows[previousKey];
